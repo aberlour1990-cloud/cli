@@ -382,6 +382,46 @@ func TestWorkflowListRejectsInvalidStatusBeforeCallingAPI(t *testing.T) {
 	}
 }
 
+func TestInjectTmateStepInsertsAfterOriginalStepWhenPatchInjected(t *testing.T) {
+	jobs := map[string]interface{}{
+		"build": map[string]interface{}{
+			"steps": []interface{}{
+				map[string]interface{}{"uses": "actions/checkout@v4"},
+				map[string]interface{}{"name": "Apply local patch from Depot Cache"},
+				map[string]interface{}{"run": "echo ready"},
+				map[string]interface{}{"run": "echo final"},
+			},
+		},
+	}
+
+	if err := injectTmateStep(jobs, "build", 2, true); err != nil {
+		t.Fatalf("injectTmateStep returned error: %v", err)
+	}
+
+	steps := jobs["build"].(map[string]interface{})["steps"].([]interface{})
+	if len(steps) != 5 {
+		t.Fatalf("len(steps) = %d, want 5", len(steps))
+	}
+	if _, ok := steps[3].(map[string]interface{})["uses"]; !ok {
+		t.Fatalf("tmate step inserted at wrong location: %#v", steps)
+	}
+	if _, ok := steps[4].(map[string]interface{})["run"]; !ok {
+		t.Fatalf("original step after insertion was reordered incorrectly: %#v", steps)
+	}
+}
+
+func TestInjectTmateStepRejectsNonPositiveIndex(t *testing.T) {
+	jobs := map[string]interface{}{
+		"build": map[string]interface{}{
+			"steps": []interface{}{map[string]interface{}{"run": "echo hi"}},
+		},
+	}
+
+	if err := injectTmateStep(jobs, "build", 0, false); err == nil || !strings.Contains(err.Error(), "must be greater than 0") {
+		t.Fatalf("injectTmateStep(0) error = %v, want positive index validation", err)
+	}
+}
+
 func TestWorkflowListEmptyResults(t *testing.T) {
 	t.Setenv("DEPOT_TOKEN", "token-from-env")
 

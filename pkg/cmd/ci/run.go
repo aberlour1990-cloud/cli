@@ -628,6 +628,10 @@ echo "Patch applied successfully"`, workspacePatchKey, cacheBaseURL),
 }
 
 func injectTmateStep(jobs map[string]interface{}, jobName string, afterStep int, patchInjected bool) error {
+	if afterStep <= 0 {
+		return fmt.Errorf("--ssh-after-step must be greater than 0")
+	}
+
 	jobRaw, ok := jobs[jobName]
 	if !ok {
 		return fmt.Errorf("job %q not found", jobName)
@@ -653,9 +657,9 @@ func injectTmateStep(jobs map[string]interface{}, jobName string, afterStep int,
 	}
 
 	insertAt := afterStep
+	checkoutIndex := -1
 	if patchInjected {
-		// Find checkout index to adjust for the injected patch step
-		checkoutIndex := -1
+		// Find checkout index to adjust for the injected patch step.
 		for i, stepRaw := range steps {
 			step, ok := stepRaw.(map[string]interface{})
 			if !ok {
